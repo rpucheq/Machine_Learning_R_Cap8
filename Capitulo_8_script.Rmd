@@ -1,0 +1,172 @@
+---
+title: "Parte Practica Capitulo 8"
+author: "Rafael Puche Q."
+output: pdf_document
+---
+#**Capitulo 8: Reglas de Asociacion**  #
+
+## Ejemplo: Identificar compras frecuentes de alimentos
+## **Paso 2: Explorar y preparar la data**
+  
+#### Limpiar el workspace
+
+rm (list=ls())
+setwd(dir = "MEGA_Maestria/Machine_Learning_IVIC/Codes_del_libro/Chapter_08/")
+
+
+#### Cargar el archivo grocery.csv en una matriz dispersa. Instalacion de paquetes
+
+install.packages("arules")
+install.packages("arulesViz")
+```{r}
+library(arules)
+library(arulesViz)
+groceries <- read.transactions("groceries.csv", sep = ",")
+summary(groceries)
+```
+
+#### Observar las primeras 5 transacciones
+
+```{r}
+inspect(groceries[1:5])
+```
+
+#### Examinar la frecuencia de los items
+
+```{r}
+itemFrequency(groceries[, 1:3])
+```
+
+#### Graficar la frecuencia de los items
+
+```{r}
+itemFrequencyPlot(groceries, support = 0.1)
+itemFrequencyPlot(groceries, topN = 20)
+```
+
+#### Mejorar la visualizacion de los items con el comando cex.names
+
+```{r}
+itemFrequencyPlot(groceries, topN = 20, cex.names=0.8)
+```
+
+#### Visualizar la matriz de dispersion de las 5 primeras transacciones
+
+```{r}
+image(groceries[1:20])
+```
+
+#### Visualizar una muestra aleatoria de 100 transacciones
+
+```{r}
+image(sample(groceries, 100))
+```
+
+## **Paso 3: Entrenar nuestro modelo en los datos**
+
+```{r}
+library(arules)
+```
+
+#### Condiciones por defecto del algoritmo, generan 0 reglas  
+
+```{r}
+apriori(groceries)
+```
+
+
+#### **The appropriate minimum confidence level depends a great deal**
+#### **on the goals of your analysis. If you start with a conservative**
+#### **value, you can always reduce it to broaden the search if you aren't**
+#### **finding actionable intelligence**
+
+
+#### Ajustar mejor los valores de support y niveles de confianza para aprender mas reglas
+#### minlen = 2 elimina reglas que tienen menos de dos items 
+
+```{r}
+groceryrules <- apriori(groceries, parameter = list(support =
+                          0.006, confidence = 0.25, minlen = 2))
+groceryrules
+plot(groceryrules, shading="order", control=list(main = "Two-key plot"))
+```
+
+#### Prueba de significancia para encontrar reglas de asociacion en las cuales LHS y el RHS dependen uno del otro
+
+```{r}
+grocerty_sig <- is.significant(groceryrules, groceries, alpha = 0.01, adjust = "bonferroni")
+table(grocerty_sig)
+```
+
+#### Ajustando confidence = 0.50 y support = 0.006
+
+```{r}
+groceryrules_c50 <- apriori(groceries, parameter = list(support =
+                          0.006, confidence = 0.50, minlen = 2))
+groceryrules_c50
+
+grocery_sig_c50 <- is.significant(groceryrules_c50, groceries, alpha = 0.01, adjust = "bonferroni")
+table(grocery_sig_c50)
+
+plot(groceryrules, method="grouped", control=list(k=20))
+
+plot(groceryrules_c50, method="grouped", control=list(k=20))
+
+plot(groceryrules, method="matrix", measure=c("lift", "confidence"), control=list(reorder=TRUE))
+plot(groceryrules_c50, method="matrix", measure=c("lift", "confidence"), control=list(reorder=TRUE))
+```
+
+## Paso 4: Evaluar el desempeño del modelo 
+#### Resumen de las reglas de asociacion de nuestros datos 
+
+```{r}
+summary(groceryrules)
+summary(groceryrules_c50)
+```
+
+#### Utilizar una libreria para visualizar las reglas de asociacion (arulesViz)
+```{r}
+plot(groceryrules)
+plot(groceryrules_c50)
+```
+
+#### Veamos las tres primeras reglas
+```{r}
+inspect(groceryrules[1:3])
+inspect(groceryrules_c50[1:3])
+```
+
+## Paso 5: Mejorar el desempeño del modelo 
+
+#### Ordenar las "groceryrules" por indice lift mas alto
+
+```{r}
+inspect(sort(groceryrules, by = "lift")[1:5])
+inspect(sort(groceryrules_c50, by = "lift")[1:5])
+```
+
+### Usar arulesViz para visualizar las reglas ordendas por lift, en esquema vertice y borde
+
+```{r}
+sort_grocery <- head(sort(groceryrules, by = "lift")[1:5])
+sort_groceryc50 <- head(sort(groceryrules_c50, by = "lift")[1:5])
+plot(sort_grocery, method="graph")
+plot(sort_groceryc50, method="graph")
+```
+
+#### Encontrar subgrupos de reglas que contienen cualquier item "berries" (fresas, moras, arandanos)
+
+```{r}
+berryrules <- subset(groceryrules, items %in% "berries")
+inspect(berryrules)
+```
+
+#### Escribir las reglas encontradas a un archivo CSV
+````{r}
+write(groceryrules, file = "groceryrules.csv",
+      sep = ",", quote = TRUE, row.names = FALSE)
+
+#### Convertir el conjunto de reglas en un "data frame"
+groceryrules_df <- as(groceryrules, "data.frame")
+str(groceryrules_df)
+```
